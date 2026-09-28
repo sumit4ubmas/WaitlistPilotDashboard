@@ -1,0 +1,699 @@
+<title>Waitlist Usage Explorer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+:root{
+  --bg:#f6f5f8; --surface:#ffffff; --ink:#1c1822; --ink2:#5b5463; --muted:#857e8c;
+  --grid:#ece9ef; --axis:#cfcad4; --border:rgba(28,24,34,.10);
+  --accent:#6d2f7e; --accent-ink:#ffffff; --accent-wash:rgba(109,47,126,.08);
+  --s1:#2a78d6; --s2:#eb6834; --s3:#1baf7a; --s4:#eda100;
+  --h0:#f1eff4; --h1:#cde2fb; --h2:#9ec5f4; --h3:#6da7ec; --h4:#3987e5; --h5:#256abf; --h6:#184f95;
+  --good:#006300; --bad:#b3261e;
+  --font:"Instrument Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    color-scheme:dark;
+    --bg:#121014; --surface:#1b181f; --ink:#f3eff6; --ink2:#c3bbc9; --muted:#8e8795;
+    --grid:#2a262f; --axis:#3b3641; --border:rgba(255,255,255,.10);
+    --accent:#cf9fdd; --accent-ink:#1b0f20; --accent-wash:rgba(207,159,221,.12);
+    --s1:#3987e5; --s2:#d95926; --s3:#199e70; --s4:#c98500;
+    --h0:#241f29; --h1:#104281; --h2:#184f95; --h3:#256abf; --h4:#3987e5; --h5:#6da7ec; --h6:#9ec5f4;
+    --good:#0ca30c; --bad:#f07a73;
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#121014; --surface:#1b181f; --ink:#f3eff6; --ink2:#c3bbc9; --muted:#8e8795;
+  --grid:#2a262f; --axis:#3b3641; --border:rgba(255,255,255,.10);
+  --accent:#cf9fdd; --accent-ink:#1b0f20; --accent-wash:rgba(207,159,221,.12);
+  --s1:#3987e5; --s2:#d95926; --s3:#199e70; --s4:#c98500;
+  --h0:#241f29; --h1:#104281; --h2:#184f95; --h3:#256abf; --h4:#3987e5; --h5:#6da7ec; --h6:#9ec5f4;
+  --good:#0ca30c; --bad:#f07a73;
+}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--font);font-size:14px;line-height:1.45;padding-inline:16px;padding-block:0 48px}
+.wrap{max-width:1180px;margin:0 auto}
+header.top{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px;padding-block:28px 18px}
+h1{font-size:26px;font-weight:700;letter-spacing:-.01em;margin:0;text-wrap:balance}
+.eyebrow{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);font-weight:600;margin-bottom:4px}
+.sub{color:var(--ink2);margin:4px 0 0}
+.stamp{font-family:var(--mono);font-size:12px;color:var(--muted)}
+.source{display:flex;flex-direction:column;align-items:flex-end;gap:6px;max-width:100%}
+.srcbtns{display:flex;gap:10px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
+.upbtn{font-size:13px;font-weight:600;color:var(--accent-ink);background:var(--accent);border-radius:8px;padding:8px 14px;cursor:pointer;display:inline-flex;align-items:center;gap:6px}
+.upbtn:hover{filter:brightness(1.08)}
+.upbtn:focus-within,#file:focus-visible+.upbtn{outline:2px solid var(--accent);outline-offset:2px}
+.linkbtn{font:inherit;font-size:13px;color:var(--accent);background:none;border:0;padding:4px 2px;cursor:pointer;text-decoration:underline;text-underline-offset:3px}
+.srcmsg{font-size:12.5px;color:var(--ink2);text-align:right;max-width:46ch}
+.srcmsg.err{color:var(--bad)}
+.srcmsg.ok{color:var(--good)}
+body.dragging .wrap{outline:2px dashed var(--accent);outline-offset:6px;border-radius:12px}
+@media (max-width:600px){.source{align-items:flex-start}.srcbtns{justify-content:flex-start}.srcmsg{text-align:left}}
+
+/* Filter bar */
+.filters{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);display:flex;flex-wrap:wrap;gap:10px 18px;align-items:flex-end;padding-block:10px 12px;border-bottom:1px solid var(--border)}
+.fgroup{display:flex;flex-direction:column;gap:4px;min-width:0}
+.flabel{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:600}
+select,input[type=date]{font:inherit;color:var(--ink);background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:7px 10px;min-height:36px;max-width:100%}
+select{min-width:210px;font-weight:600}
+.seg{display:inline-flex;background:var(--surface);border:1px solid var(--border);border-radius:9px;padding:2px;flex-wrap:wrap}
+.seg button{font:inherit;font-size:13px;font-weight:500;color:var(--ink2);background:transparent;border:0;border-radius:7px;padding:6px 11px;cursor:pointer;min-height:30px}
+.seg button:hover{background:var(--accent-wash);color:var(--ink)}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);font-weight:600}
+.dates{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.dates span{color:var(--muted)}
+.toggle{display:flex;align-items:center;gap:7px;font-size:13px;color:var(--ink2);min-height:36px;cursor:pointer}
+.toggle input{accent-color:var(--accent);width:16px;height:16px}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+.context{display:flex;flex-wrap:wrap;gap:6px 18px;align-items:baseline;padding-block:16px 4px}
+.context h2{font-size:20px;margin:0;font-weight:700}
+.context .meta{color:var(--ink2);font-size:13px}
+.pill{display:inline-flex;align-items:center;gap:6px;font-size:12px;padding:2px 9px;border-radius:999px;border:1px solid var(--border);color:var(--ink2);background:var(--surface)}
+.pill i{width:7px;height:7px;border-radius:50%;display:inline-block}
+
+/* KPIs */
+.kpis{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:1px;background:var(--border);border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-block:14px 18px}
+.kpi{background:var(--surface);padding:14px 16px 14px;display:flex;flex-direction:column;gap:2px;min-width:0}
+.kpi .k{font-size:12px;color:var(--ink2);font-weight:500}
+.kpi .v{font-size:28px;font-weight:600;letter-spacing:-.02em;line-height:1.15}
+.kpi .v small{font-size:14px;font-weight:500;color:var(--ink2);margin-left:2px}
+.kpi .d{font-size:12px;color:var(--muted)}
+.kpi .d b{font-weight:600}
+.up{color:var(--good)} .down{color:var(--bad)}
+
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:18px}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px 18px 14px;min-width:0}
+.card.full{margin-bottom:18px}
+.card h3{font-size:15px;margin:0;font-weight:600}
+.card .cap{color:var(--ink2);font-size:12.5px;margin:2px 0 10px}
+.chead{display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px 16px;align-items:flex-start}
+.legend{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:12px;color:var(--ink2)}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.legend i{width:10px;height:10px;border-radius:2px;display:inline-block}
+.chart{width:100%;position:relative}
+.chart svg{display:block;width:100%;height:auto;overflow:visible}
+.chart text{font-family:var(--font);fill:var(--muted);font-size:11px}
+.chart .vl{fill:var(--ink2);font-size:11px;font-weight:600}
+.chart .hit{fill:transparent;cursor:default}
+.chart .mark{transition:opacity .12s}
+.chart g.col:hover .mark,.chart rect.cell:hover{opacity:.78}
+.note{font-size:12.5px;color:var(--ink2);margin-top:8px}
+.note b{color:var(--ink);font-weight:600}
+.empty{color:var(--muted);font-size:13px;padding:30px 0;text-align:center}
+
+/* Tables */
+.tscroll{overflow-x:auto;margin-inline:-4px}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);font-weight:600;text-align:left;padding:8px 10px;border-bottom:1px solid var(--border);white-space:nowrap}
+td{padding:8px 10px;border-bottom:1px solid var(--grid);white-space:nowrap}
+td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+tbody tr:last-child td{border-bottom:0}
+.cmp tbody tr{cursor:pointer}
+.cmp tbody tr:hover{background:var(--accent-wash)}
+.cmp tbody tr.sel{background:var(--accent-wash)}
+.cmp tbody tr.sel td:first-child{font-weight:700}
+.status{display:inline-flex;align-items:center;gap:6px}
+.status i{width:8px;height:8px;border-radius:50%;display:inline-block}
+.muted{color:var(--muted)}
+.tag{font-size:11px;color:var(--muted);border:1px solid var(--border);border-radius:4px;padding:0 5px;margin-left:6px}
+.logtools{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.logtools .seg button{font-size:12px;padding:4px 9px;min-height:26px}
+
+button.more{font:inherit;font-size:13px;font-weight:600;color:var(--accent);background:transparent;border:1px solid var(--border);border-radius:8px;padding:7px 14px;margin-top:10px;cursor:pointer}
+button.more:hover{background:var(--accent-wash)}
+#tip{position:fixed;pointer-events:none;z-index:20;background:var(--surface);color:var(--ink);border:1px solid var(--border);border-radius:8px;box-shadow:0 6px 24px rgba(0,0,0,.14);padding:8px 10px;font-size:12px;min-width:140px;opacity:0;transition:opacity .08s}
+#tip .tt{color:var(--ink2);font-weight:600;margin-bottom:4px}
+#tip .row{display:flex;align-items:center;gap:8px;justify-content:space-between}
+#tip .row span{display:inline-flex;align-items:center;gap:6px;color:var(--ink2)}
+#tip .row i{width:10px;height:2px;display:inline-block;border-radius:1px}
+#tip .row b{font-variant-numeric:tabular-nums}
+footer{color:var(--muted);font-size:12px;margin-top:8px;max-width:78ch}
+footer li{margin-bottom:3px}
+
+@media (max-width:980px){.kpis{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media (max-width:760px){.grid2{grid-template-columns:1fr} .filters{position:static}}
+@media (max-width:480px){.kpis{grid-template-columns:repeat(2,minmax(0,1fr))} select{min-width:0;width:100%} .fgroup{width:100%} h1{font-size:22px}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div>
+      <div class="eyebrow">Plum LineUp · Waitlist</div>
+      <h1>Waitlist Usage Explorer</h1>
+      <p class="sub">How guests used the waitlist at each location: parties joined, outcomes, wait times and busy hours.</p>
+    </div>
+    <div class="source" id="source">
+      <div class="srcline"><span class="stamp" id="srcName"></span></div>
+      <div class="srcbtns">
+        <label class="upbtn" for="file">Upload new export</label>
+        <input type="file" id="file" accept=".xlsx,.xls" hidden>
+        <button type="button" class="linkbtn" id="resetData" hidden>Back to built-in data</button>
+      </div>
+      <div class="srcmsg" id="srcMsg" role="status"></div>
+    </div>
+  </header>
+
+  <div class="filters" role="group" aria-label="Filters">
+    <div class="fgroup">
+      <label class="flabel" for="loc">Location</label>
+      <select id="loc"></select>
+    </div>
+    <div class="fgroup">
+      <span class="flabel" id="perlbl">Period</span>
+      <div class="seg" id="presets" aria-labelledby="perlbl">
+        <button type="button" data-p="7">7 days</button>
+        <button type="button" data-p="14">14 days</button>
+        <button type="button" data-p="30">30 days</button>
+        <button type="button" data-p="all">All time</button>
+      </div>
+    </div>
+    <div class="fgroup">
+      <span class="flabel">Custom range</span>
+      <div class="dates">
+        <input type="date" id="from" aria-label="From date">
+        <span>to</span>
+        <input type="date" id="to" aria-label="To date">
+      </div>
+    </div>
+    <div class="fgroup">
+      <span class="flabel" id="grlbl">Trend by</span>
+      <div class="seg" id="gran" aria-labelledby="grlbl">
+        <button type="button" data-g="day">Day</button>
+        <button type="button" data-g="week">Week</button>
+      </div>
+    </div>
+    <label class="toggle"><input type="checkbox" id="hideTest" checked> Hide test entries</label>
+  </div>
+
+  <div class="context" id="context"></div>
+
+  <section class="kpis" id="kpis" aria-label="Summary"></section>
+
+  <section class="card full">
+    <div class="chead">
+      <div><h3>Parties joined over time</h3><p class="cap" id="trendCap"></p></div>
+      <div class="legend" id="outLegend"></div>
+    </div>
+    <div class="chart" id="trend"></div>
+  </section>
+
+  <div class="grid2">
+    <section class="card">
+      <h3>Busy times</h3>
+      <p class="cap">Parties joining by weekday and hour, in the location's local time.</p>
+      <div class="chart" id="heat"></div>
+    </section>
+    <section class="card">
+      <h3>Actual wait for seated parties</h3>
+      <p class="cap">Minutes from joining the list to being seated.</p>
+      <div class="chart" id="waits"></div>
+      <p class="note" id="waitNote"></p>
+    </section>
+  </div>
+
+  <div class="grid2">
+    <section class="card">
+      <div class="chead">
+        <div><h3>How guests joined</h3><p class="cap">Walk-in (added by host) vs. web self check-in, split by outcome.</p></div>
+      </div>
+      <div class="chart" id="channel"></div>
+      <div class="legend" id="chLegend" style="margin-top:8px"></div>
+    </section>
+    <section class="card">
+      <h3>Party size</h3>
+      <p class="cap">Number of parties by size.</p>
+      <div class="chart" id="party"></div>
+    </section>
+  </div>
+
+  <section class="card full">
+    <h3>All locations, same period</h3>
+    <p class="cap">Select a row to switch the dashboard to that location.</p>
+    <div class="tscroll"><table class="cmp" id="cmp"></table></div>
+  </section>
+
+  <section class="card full">
+    <div class="chead">
+      <div><h3>Waitlist entries</h3><p class="cap" id="logCap"></p></div>
+      <div class="logtools"><div class="seg" id="logFilter"></div></div>
+    </div>
+    <div class="tscroll"><table id="log"></table></div>
+    <button type="button" id="logMore" class="more"></button>
+  </section>
+
+  <footer>
+    <ul>
+      <li>Times are shown in each location's configured time zone, named in the location header.</li>
+      <li>To refresh the report, choose Upload new export (or drag the file onto the page) and pick a newer Waitlist export .xlsx. It is read in your browser and nothing is sent anywhere; your browser remembers the last upload until you choose Back to built-in data.</li>
+      <li>Wait times over 3 hours are treated as entries closed late by staff (for example, seated the next day) and left out of wait statistics. They still count as seated.</li>
+      <li>"Hide test entries" removes guests named Test, CHK, New Guest and similar QA names. Guest names are shortened to first name and last initial; phone numbers and emails are not included.</li>
+      <li>Quoted wait is the estimate the guest was shown when joining. Some web check-ins have no quote recorded.</li>
+    </ul>
+  </footer>
+</div>
+<div id="tip" role="tooltip"></div>
+
+<script>
+const ORIGINAL = {"locations": [{"id": "cmtuc9lcl007v27rv31zrdxye", "name": "PH Costa Mesa", "tz": "America/Los_Angeles", "address": "1901 Placentia Ave, Costa Mesa, CA 92627", "created": "2026-09-09", "sms": true, "defaultWait": 10, "maxQueue": 40}, {"id": "cmtkfd47b001127rvsf52ayh9", "name": "FD Rancho", "tz": "America/Los_Angeles", "address": null, "created": "2026-09-02", "sms": false, "defaultWait": 5, "maxQueue": 30}, {"id": "cmuhox1n0001y2dlax4dx8be7", "name": "Tatva", "tz": "America/Los_Angeles", "address": null, "created": "2026-09-26", "sms": true, "defaultWait": 10, "maxQueue": 30}, {"id": "downtown-restaurant", "name": "Downtown", "tz": "America/New_York", "address": null, "created": "2026-08-11", "sms": false, "defaultWait": 10, "maxQueue": 30}, {"id": "default-restaurant", "name": "Costa Mesa", "tz": "America/New_York", "address": null, "created": "2026-08-11", "sms": false, "defaultWait": 10, "maxQueue": 30}, {"id": "cmtuc5hqa007e27rvwy0lh0v4", "name": "FD Santa Ana", "tz": "America/Los_Angeles", "address": null, "created": "2026-09-09", "sms": false, "defaultWait": 20, "maxQueue": 30}, {"id": "cmtxgfzum000i27nhxg5euxyo", "name": "G-Express", "tz": "America/Los_Angeles", "address": null, "created": "2026-09-11", "sms": true, "defaultWait": 10, "maxQueue": 30}, {"id": "cmtxgqnjd001027nh9hctdqvk", "name": "SKG_COSTAMESA", "tz": "America/Los_Angeles", "address": null, "created": "2026-09-11", "sms": true, "defaultWait": 10, "maxQueue": 30}, {"id": "cmu1aj8i7001027rt9h0l3maj", "name": "New York", "tz": "America/New_York", "address": "123, Street 12", "created": "2026-09-14", "sms": true, "defaultWait": 10, "maxQueue": 30}], "entries": [{"l": "default-restaurant", "d": "2026-08-12", "t": "09:48", "h": 9, "w": 2, "s": "SEATED", "c": "WALK_IN", "p": 2, "q": 10, "a": 10.0, "o": null, "n": "Sumit G.", "x": false, "ext": false}, {"l": "default-restaurant", "d": "2026-08-12", "t": "09:49", "h": 9, "w": 2, "s": "SEATED", "c": "WALK_IN", "p": 2, "q": 10, "a": 15.8, "o": null, "n": "Michael M.", "x": false, "ext": false}, {"l": "default-restaurant", "d": "2026-08-12", "t": "10:05", "h": 10, "w": 2, "s": "SEATED", "c": "WALK_IN", "p": 2, "q": 10, "a": 1.8, "o": "Engagement", "n": "Test", "x": true, "ext": false}, {"l": "default-restaurant", "d": "2026-08-12", "t": "10:17", "h": 10, "w": 2, "s": "SEATED", "c": "WALK_IN", "p": 2, "q": 10, "a": 142.6, "o": null, "n": "Wade C.", "x": false, "ext": false}, {"l": "default-restaurant", "d": "2026-08-12", "t": "12:40", "h": 12, "w": 2, "s": "SEATED", "c": "WALK_IN", "p": 2, "q": 10, "a": 92.1, "o": null, "n": "Test", "x": true, "ext": false}, {"l": "default-restaurant", "d": "2026-08-12", "t": "15:06", "h": 15, "w": 2, "s": "SEATED", "c": "WALK_IN", "p": 3, "q": 10, "a": 25.4, "o": "Birthday", "n": "Chk-01", "x": true, "ext": false}, {"l": "default-restaurant", "d": "2026-08-12", "t": "15:07", "h": 15, "w": 2, "s": "SEATED", "c": "WALK_IN", "p": 1, "q": 10, "a": 28.4, "o": "Graduation", "n": "Chk-04Edit", "x": true, "ext": false}, {"l": "default-restaurant", "d": "2026-08-12", "t": "15:08", "h": 15, "w": 2, "s": "SEATED", "c": "WALK_IN", "p": 9, "q": 10, "a": 1029.2, "o": "Celebration", "n": "Chk-05", "x": true, "ext": false}, {"l": "default-restaurant", "d": "2026-08-12", "t": "15:33", "h": 15, "w": 2, "s": "SEATED", "c": "WALK_IN", "p": 2, "q": 10, "a": 1003.8, "o": null, "n": "New 1.", "x": true, "ext": false}, {"l": "default-restaurant", "d": "2026-08-12", "t": "15:35", "h": 15, "w": 2, "s": "SEATED", "c": "WALK_IN", "p": 2, "q": 10, "a": 1002.2, "o": null, "n": "Test 3.", "x": true, "ext": false}, {"l": "default-restaurant", "d": "2026-08-12", "t": "15:55", "h": 15, "w": 2, "s": "SEATED", "c": "WALK_IN", "p": 2, "q": 10, "a": 982.3, "o": null, "n": "New 1.", "x": true, "ext": false}, {"l": "default-restaurant", "d": "2026-08-13", "t": "08:18", "h": 8, "w": 3, "s": "SEATED", "c": "WALK_IN", "p": 2, "q": 10, "a": 411.8, "o": null, "n": "Sumit G.", "x": false, "ext": false}, {"l": "default-restaurant", "d": "2026-08-13", "t": "15:43", "h": 15, "w": 3, "s": "SEATED", "c": "WALK_IN", "p": 2, "q": 10, "a": 9.1, "o": null, "n": "Michael M.", "x": false, "ext": false}, {"l": "default-restaurant", "d": "2026-08-13", "t": "15:44", "h": 15, "w": 3, "s": "SEATED", "c": "WALK_IN", "p": 2, "q": 10, "a": 8.5, "o": null, "n": "Michael M.", "x": false, "ext": false}, {"l": "default-restaurant", "d": "2026-08-13", "t": "15:44", "h": 15, "w": 3, "s": "SEATED", "c": "WALK_IN", "p": 2, "q": 10, "a": 8.2, "o": null, "n": "Michael M.", "x": false, "ext": false}, {"l": "default-restaurant", "d": "2026-08-13", "t": "15:45", "h": 15, "w": 3, "s": "SEATED", "c": "WALK_IN", "p": 2, "q": 10, "a": 7.7, "o": null, "n": "Test", "x": true, "ext": false}, {"l": "default-restaurant", "d": "2026-08-13", "t": "15:45", "h": 15, "w": 3, "s": "SEATED", "c": "WALK_IN", "p": 2, "q": 10, "a": 7.5, "o": null, "n": "Test1", "x": true, "ext": false}, {"l": "default-restaurant", "d": "2026-08-13", "t": "15:45", "h": 15, "w": 3, "s": "SEATED", "c": "WALK_IN", "p": 2, "q": 10, "a": 7.4, "o": null, "n": "Test 3.", "x": true, "ext": false}, {"l": "default-restaurant", "d": "2026-08-13", "t": "15:46", "h": 15, "w": 3, "s": "SEATED", "c": "WALK_IN", "p": 2, "q": 10, "a": 7.1, "o": null, "n": "Test 4.", "x": true, "ext": false}, {"l": "default-restaurant", "d": "2026-08-13", "t": "15:47", "h": 15, "w": 3, "s": "SEATED", "c": "WALK_IN", "p": 2, "q": 10, "a": 6.3, "o": "Birthday", "n": "New 1.", "x": true, "ext": false}, {"l": "default-restaurant", "d": "2026-08-13", "t": "15:48", "h": 15, "w": 3, "s": "SEATED", "c": "WALK_IN", "p": 2, "q": 10, "a": 16.8, "o": "Celebration", "n": "New 3.", "x": true, "ext": false}, {"l": "default-restaurant", "d": "2026-08-13", "t": "15:48", "h": 15, "w": 3, "s": "SEATED", "c": "WALK_IN", "p": 2, "q": 10, "a": 16.5, "o": null, "n": "Test 5.", "x": true, "ext": false}, {"l": "default-restaurant", "d": "2026-08-13", "t": "15:48", "h": 15, "w": 3, "s": "SEATED", "c": "WALK_IN", "p": 4, "q": 10, "a": 27.0, "o": "Date night", "n": "Wade C.", "x": false, "ext": false}, {"l": "default-restaurant", "d": "2026-08-13", "t": "15:49", "h": 15, "w": 3, "s": "SEATED", "c": "WALK_IN", "p": 1, "q": 10, "a": 26.8, "o": "Engagement", "n": "Brian", "x": false, "ext": false}, {"l": "default-restaurant", "d": "2026-08-13", "t": "15:49", "h": 15, "w": 3, "s": "SEATED", "c": "WALK_IN", "p": 2, "q": 10, "a": 27.6, "o": null, "n": "James S.", "x": false, "ext": false}, {"l": "default-restaurant", "d": "2026-08-13", "t": "15:51", "h": 15, "w": 3, "s": "SEATED", "c": "WALK_IN", "p": 2, "q": 10, "a": 32.3, "o": null, "n": "James B.", "x": false, "ext": false}, {"l": "default-restaurant", "d": "2026-08-13", "t": "15:52", "h": 15, "w": 3, "s": "SEATED", "c": "WALK_IN", "p": 6, "q": 10, "a": 25.5, "o": null, "n": "Noah S.", "x": false, "ext": false}, {"l": "default-restaurant", "d": "2026-08-13", "t": "15:52", "h": 15, "w": 3, "s": "SEATED", "c": "WALK_IN", "p": 2, "q": 10, "a": 25.9, "o": null, "n": "Clinton", "x": false, "ext": false}, {"l": "default-restaurant", "d": "2026-08-13", "t": "15:52", "h": 15, "w": 3, "s": "SEATED", "c": "WALK_IN", "p": 4, "q": 10, "a": 26.2, "o": "Anniversary", "n": "Sadat", "x": false, "ext": false}, {"l": "default-restaurant", "d": "2026-08-13", "t": "16:16", "h": 16, "w": 3, "s": "SEATED", "c": "WALK_IN", "p": 2, "q": 10, "a": 6.5, "o": null, "n": "T S.", "x": true, "ext": false}, {"l": "default-restaurant", "d": "2026-08-13", "t": "16:17", "h": 16, "w": 3, "s": "NO_SHOW", "c": "WALK_IN", "p": 2, "q": 10, "a": null, "o": null, "n": "Test A.", "x": true, "ext": false}, {"l": "downtown-restaurant", "d": "2026-09-01", "t": "09:22", "h": 9, "w": 1, "s": "SEATED", "c": "WALK_IN", "p": 4, "q": 10, "a": 4.8, "o": "Celebration", "n": "Wade S.", "x": false, "ext": false}, {"l": "downtown-restaurant", "d": "2026-09-01", "t": "09:23", "h": 9, "w": 1, "s": "NO_SHOW", "c": "WALK_IN", "p": 3, "q": 10, "a": null, "o": null, "n": "Michael M.", "x": false, "ext": false}, {"l": "downtown-restaurant", "d": "2026-09-01", "t": "09:23", "h": 9, "w": 1, "s": "RUNNING_LATE", "c": "WALK_IN", "p": 2, "q": 10, "a": null, "o": "Anniversary", "n": "Andrew M.", "x": false, "ext": false}, {"l": "downtown-restaurant", "d": "2026-09-01", "t": "09:24", "h": 9, "w": 1, "s": "WAITING", "c": "WALK_IN", "p": 2, "q": 10, "a": null, "o": "Celebration", "n": "Sumit G.", "x": false, "ext": false}, {"l": "cmtkfd47b001127rvsf52ayh9", "d": "2026-09-02", "t": "11:30", "h": 11, "w": 2, "s": "LEFT", "c": "WEB", "p": 2, "q": null, "a": null, "o": "Anniversary", "n": "Sumit G.", "x": false, "ext": false}, {"l": "cmtkfd47b001127rvsf52ayh9", "d": "2026-09-02", "t": "11:31", "h": 11, "w": 2, "s": "LEFT", "c": "WEB", "p": 2, "q": 10, "a": null, "o": null, "n": "Sumit G.", "x": false, "ext": false}, {"l": "cmtkfd47b001127rvsf52ayh9", "d": "2026-09-02", "t": "11:34", "h": 11, "w": 2, "s": "LEFT", "c": "WEB", "p": 2, "q": 10, "a": null, "o": "Birthday", "n": "Test", "x": true, "ext": false}, {"l": "cmtkfd47b001127rvsf52ayh9", "d": "2026-09-02", "t": "11:38", "h": 11, "w": 2, "s": "LEFT", "c": "WEB", "p": 2, "q": 10, "a": null, "o": "Graduation", "n": "Test 3.", "x": true, "ext": false}, {"l": "cmtkfd47b001127rvsf52ayh9", "d": "2026-09-02", "t": "11:40", "h": 11, "w": 2, "s": "LEFT", "c": "WEB", "p": 2, "q": 10, "a": null, "o": null, "n": "Test 5.", "x": true, "ext": false}, {"l": "cmtkfd47b001127rvsf52ayh9", "d": "2026-09-02", "t": "13:22", "h": 13, "w": 2, "s": "NO_SHOW", "c": "WEB", "p": 2, "q": 10, "a": null, "o": "Celebration", "n": "Sumit G.", "x": false, "ext": false}, {"l": "default-restaurant", "d": "2026-09-03", "t": "13:51", "h": 13, "w": 3, "s": "LEFT", "c": "WEB", "p": 2, "q": 10, "a": null, "o": "Birthday", "n": "Deepak V.", "x": false, "ext": true}, {"l": "default-restaurant", "d": "2026-09-04", "t": "11:37", "h": 11, "w": 4, "s": "LEFT", "c": "WEB", "p": 10, "q": 10, "a": null, "o": "Celebration", "n": "Deepak V.", "x": false, "ext": false}, {"l": "cmtkfd47b001127rvsf52ayh9", "d": "2026-09-08", "t": "15:30", "h": 15, "w": 1, "s": "SEATED", "c": "WALK_IN", "p": 4, "q": 10, "a": 9.7, "o": null, "n": "Rohan S.", "x": false, "ext": false}, {"l": "cmtkfd47b001127rvsf52ayh9", "d": "2026-09-08", "t": "15:31", "h": 15, "w": 1, "s": "SEATED", "c": "WALK_IN", "p": 2, "q": 10, "a": 17.4, "o": "Date night", "n": "John D.", "x": false, "ext": false}, {"l": "cmtkfd47b001127rvsf52ayh9", "d": "2026-09-08", "t": "15:34", "h": 15, "w": 1, "s": "SEATED", "c": "WALK_IN", "p": 6, "q": 10, "a": 9.1, "o": "Birthday", "n": "Parth D.", "x": false, "ext": false}, {"l": "cmtkfd47b001127rvsf52ayh9", "d": "2026-09-08", "t": "15:36", "h": 15, "w": 1, "s": "SEATED", "c": "WALK_IN", "p": 4, "q": 10, "a": 12.0, "o": "Celebration", "n": "Kevin L.", "x": false, "ext": false}, {"l": "cmtkfd47b001127rvsf52ayh9", "d": "2026-09-09", "t": "08:44", "h": 8, "w": 2, "s": "NO_SHOW", "c": "WALK_IN", "p": 10, "q": 10, "a": null, "o": null, "n": "Derrick A.", "x": false, "ext": false}, {"l": "cmtkfd47b001127rvsf52ayh9", "d": "2026-09-09", "t": "09:37", "h": 9, "w": 2, "s": "SEATED", "c": "WALK_IN", "p": 6, "q": 10, "a": 2515.9, "o": null, "n": "Andrew D.", "x": false, "ext": false}, {"l": "cmtkfd47b001127rvsf52ayh9", "d": "2026-09-09", "t": "09:40", "h": 9, "w": 2, "s": "SEATED", "c": "WALK_IN", "p": 2, "q": 10, "a": 17571.7, "o": null, "n": "John D.", "x": false, "ext": false}, {"l": "cmtkfd47b001127rvsf52ayh9", "d": "2026-09-09", "t": "09:42", "h": 9, "w": 2, "s": "SEATED", "c": "WALK_IN", "p": 2, "q": 5, "a": 17569.0, "o": null, "n": "Dan F.", "x": false, "ext": false}, {"l": "cmtkfd47b001127rvsf52ayh9", "d": "2026-09-09", "t": "09:46", "h": 9, "w": 2, "s": "SEATED", "c": "WALK_IN", "p": 2, "q": 5, "a": 17565.3, "o": null, "n": "Brian L.", "x": false, "ext": false}, {"l": "cmtkfd47b001127rvsf52ayh9", "d": "2026-09-09", "t": "09:46", "h": 9, "w": 2, "s": "SEATED", "c": "WALK_IN", "p": 2, "q": 5, "a": 17565.7, "o": null, "n": "Bob D.", "x": false, "ext": false}, {"l": "cmtuc9lcl007v27rv31zrdxye", "d": "2026-09-09", "t": "10:33", "h": 10, "w": 2, "s": "SEATED", "c": "WALK_IN", "p": 2, "q": 10, "a": 113.5, "o": null, "n": "Raymond", "x": false, "ext": false}, {"l": "cmtuc9lcl007v27rv31zrdxye", "d": "2026-09-09", "t": "10:34", "h": 10, "w": 2, "s": "SEATED", "c": "WALK_IN", "p": 2, "q": 10, "a": 111.8, "o": null, "n": "Chris", "x": false, "ext": false}, {"l": "cmtuc9lcl007v27rv31zrdxye", "d": "2026-09-09", "t": "10:37", "h": 10, "w": 2, "s": "SEATED", "c": "WALK_IN", "p": 2, "q": 10, "a": 109.0, "o": null, "n": "Alice", "x": false, "ext": false}, {"l": "cmtuc9lcl007v27rv31zrdxye", "d": "2026-09-09", "t": "10:39", "h": 10, "w": 2, "s": "SEATED", "c": "WALK_IN", "p": 10, "q": 10, "a": 107.4, "o": null, "n": "David", "x": false, "ext": false}, {"l": "cmtuc9lcl007v27rv31zrdxye", "d": "2026-09-09", "t": "10:41", "h": 10, "w": 2, "s": "SEATED", "c": "WALK_IN", "p": 4, "q": 10, "a": 105.5, "o": null, "n": "Donovan", "x": false, "ext": false}, {"l": "cmtuc9lcl007v27rv31zrdxye", "d": "2026-09-09", "t": "10:41", "h": 10, "w": 2, "s": "SEATED", "c": "WALK_IN", "p": 4, "q": 10, "a": 105.6, "o": null, "n": "William", "x": false, "ext": false}, {"l": "cmtuc9lcl007v27rv31zrdxye", "d": "2026-09-09", "t": "10:56", "h": 10, "w": 2, "s": "NO_SHOW", "c": "WALK_IN", "p": 6, "q": 10, "a": null, "o": null, "n": "Ryan", "x": false, "ext": false}, {"l": "cmtuc9lcl007v27rv31zrdxye", "d": "2026-09-09", "t": "11:00", "h": 11, "w": 2, "s": "NO_SHOW", "c": "WALK_IN", "p": 2, "q": 10, "a": null, "o": null, "n": "Stetson", "x": false, "ext": false}, {"l": "cmtuc9lcl007v27rv31zrdxye", "d": "2026-09-09", "t": "11:02", "h": 11, "w": 2, "s": "NO_SHOW", "c": "WALK_IN", "p": 2, "q": 10, "a": null, "o": null, "n": "Emily", "x": false, "ext": false}, {"l": "cmtuc9lcl007v27rv31zrdxye", "d": "2026-09-09", "t": "11:24", "h": 11, "w": 2, "s": "LEFT", "c": "WEB", "p": 1, "q": null, "a": null, "o": null, "n": "Rohan", "x": false, "ext": false}, {"l": "cmtuc9lcl007v27rv31zrdxye", "d": "2026-09-09", "t": "11:24", "h": 11, "w": 2, "s": "LEFT", "c": "WEB", "p": 1, "q": null, "a": null, "o": null, "n": "Rohan", "x": false, "ext": false}, {"l": "cmtuc9lcl007v27rv31zrdxye", "d": "2026-09-09", "t": "11:27", "h": 11, "w": 2, "s": "LEFT", "c": "WEB", "p": 1, "q": null, "a": null, "o": null, "n": "Rohan", "x": false, "ext": false}, {"l": "cmtuc9lcl007v27rv31zrdxye", "d": "2026-09-09", "t": "12:27", "h": 12, "w": 2, "s": "NO_SHOW", "c": "WALK_IN", "p": 2, "q": 10, "a": null, "o": null, "n": "Sam", "x": false, "ext": false}, {"l": "cmtuc9lcl007v27rv31zrdxye", "d": "2026-09-09", "t": "12:30", "h": 12, "w": 2, "s": "NO_SHOW", "c": "WALK_IN", "p": 2, "q": 10, "a": null, "o": null, "n": "Anthony", "x": false, "ext": false}, {"l": "cmtuc9lcl007v27rv31zrdxye", "d": "2026-09-09", "t": "12:31", "h": 12, "w": 2, "s": "NO_SHOW", "c": "WALK_IN", "p": 2, "q": 20, "a": null, "o": null, "n": "Harry", "x": false, "ext": false}, {"l": "cmtuc9lcl007v27rv31zrdxye", "d": "2026-09-09", "t": "12:49", "h": 12, "w": 2, "s": "NO_SHOW", "c": "WALK_IN", "p": 3, "q": 20, "a": null, "o": null, "n": "Jack", "x": false, "ext": false}, {"l": "cmtuc9lcl007v27rv31zrdxye", "d": "2026-09-09", "t": "12:50", "h": 12, "w": 2, "s": "NO_SHOW", "c": "WALK_IN", "p": 3, "q": 20, "a": null, "o": null, "n": "Jack", "x": false, "ext": false}, {"l": "cmtuc9lcl007v27rv31zrdxye", "d": "2026-09-09", "t": "12:51", "h": 12, "w": 2, "s": "NO_SHOW", "c": "WALK_IN", "p": 3, "q": 20, "a": null, "o": null, "n": "Jack", "x": false, "ext": false}, {"l": "cmtuc9lcl007v27rv31zrdxye", "d": "2026-09-10", "t": "11:01", "h": 11, "w": 3, "s": "SEATED", "c": "WALK_IN", "p": 1, "q": 20, "a": 7.2, "o": null, "n": "Ron", "x": false, "ext": false}, {"l": "cmtuc9lcl007v27rv31zrdxye", "d": "2026-09-10", "t": "11:02", "h": 11, "w": 3, "s": "NO_SHOW", "c": "WALK_IN", "p": 5, "q": 20, "a": null, "o": null, "n": "Bob", "x": false, "ext": false}, {"l": "cmtuc9lcl007v27rv31zrdxye", "d": "2026-09-10", "t": "11:02", "h": 11, "w": 3, "s": "NO_SHOW", "c": "WALK_IN", "p": 2, "q": 20, "a": null, "o": null, "n": "Dan", "x": false, "ext": false}, {"l": "cmtuc9lcl007v27rv31zrdxye", "d": "2026-09-10", "t": "11:03", "h": 11, "w": 3, "s": "NO_SHOW", "c": "WALK_IN", "p": 2, "q": 20, "a": null, "o": null, "n": "Dana", "x": false, "ext": false}, {"l": "cmtuc9lcl007v27rv31zrdxye", "d": "2026-09-10", "t": "11:03", "h": 11, "w": 3, "s": "NO_SHOW", "c": "WALK_IN", "p": 3, "q": 20, "a": null, "o": null, "n": "Matt", "x": false, "ext": false}, {"l": "cmtuc9lcl007v27rv31zrdxye", "d": "2026-09-10", "t": "11:04", "h": 11, "w": 3, "s": "NO_SHOW", "c": "WALK_IN", "p": 2, "q": 20, "a": null, "o": null, "n": "Emily", "x": false, "ext": false}, {"l": "cmtuc9lcl007v27rv31zrdxye", "d": "2026-09-10", "t": "11:11", "h": 11, "w": 3, "s": "NO_SHOW", "c": "WALK_IN", "p": 10, "q": 20, "a": null, "o": null, "n": "David", "x": false, "ext": false}, {"l": "cmtuc9lcl007v27rv31zrdxye", "d": "2026-09-10", "t": "11:12", "h": 11, "w": 3, "s": "NO_SHOW", "c": "WALK_IN", "p": 10, "q": 20, "a": null, "o": null, "n": "David", "x": false, "ext": false}, {"l": "cmtuc9lcl007v27rv31zrdxye", "d": "2026-09-10", "t": "11:13", "h": 11, "w": 3, "s": "NO_SHOW", "c": "WALK_IN", "p": 10, "q": 20, "a": null, "o": null, "n": "David", "x": false, "ext": false}, {"l": "cmtuc5hqa007e27rvwy0lh0v4", "d": "2026-09-11", "t": "15:12", "h": 15, "w": 4, "s": "LEFT", "c": "WEB", "p": 2, "q": 20, "a": null, "o": null, "n": "Sumit G.", "x": false, "ext": false}, {"l": "cmtuc9lcl007v27rv31zrdxye", "d": "2026-09-15", "t": "12:41", "h": 12, "w": 1, "s": "SEATED", "c": "WALK_IN", "p": 5, "q": 10, "a": 32.1, "o": null, "n": "Devin", "x": false, "ext": false}, {"l": "cmtuc9lcl007v27rv31zrdxye", "d": "2026-09-15", "t": "12:42", "h": 12, "w": 1, "s": "SEATED", "c": "WALK_IN", "p": 2, "q": 10, "a": 45.8, "o": null, "n": "Landon", "x": false, "ext": false}, {"l": "cmtuc9lcl007v27rv31zrdxye", "d": "2026-09-15", "t": "12:44", "h": 12, "w": 1, "s": "LEFT", "c": "WEB", "p": 4, "q": null, "a": null, "o": null, "n": "Daniel", "x": false, "ext": false}, {"l": "cmtuc9lcl007v27rv31zrdxye", "d": "2026-09-15", "t": "12:49", "h": 12, "w": 1, "s": "LEFT", "c": "WEB", "p": 2, "q": null, "a": null, "o": null, "n": "Jane", "x": false, "ext": false}, {"l": "cmtuc9lcl007v27rv31zrdxye", "d": "2026-09-15", "t": "12:49", "h": 12, "w": 1, "s": "LEFT", "c": "WEB", "p": 7, "q": null, "a": null, "o": null, "n": "Jared", "x": false, "ext": false}, {"l": "cmtuc9lcl007v27rv31zrdxye", "d": "2026-09-15", "t": "12:59", "h": 12, "w": 1, "s": "LEFT", "c": "WEB", "p": 2, "q": null, "a": null, "o": null, "n": "James", "x": false, "ext": false}, {"l": "cmtuc9lcl007v27rv31zrdxye", "d": "2026-09-15", "t": "13:12", "h": 13, "w": 1, "s": "NO_SHOW", "c": "WALK_IN", "p": 2, "q": 10, "a": null, "o": null, "n": "Rob", "x": false, "ext": false}, {"l": "cmtuc9lcl007v27rv31zrdxye", "d": "2026-09-15", "t": "13:12", "h": 13, "w": 1, "s": "NO_SHOW", "c": "WALK_IN", "p": 6, "q": 10, "a": null, "o": null, "n": "Ray", "x": false, "ext": false}, {"l": "cmtuc9lcl007v27rv31zrdxye", "d": "2026-09-15", "t": "13:13", "h": 13, "w": 1, "s": "NO_SHOW", "c": "WALK_IN", "p": 4, "q": 10, "a": null, "o": null, "n": "Randy", "x": false, "ext": false}, {"l": "cmtuc9lcl007v27rv31zrdxye", "d": "2026-09-15", "t": "13:35", "h": 13, "w": 1, "s": "SEATED", "c": "WALK_IN", "p": 2, "q": 10, "a": 10.1, "o": null, "n": "John", "x": false, "ext": false}, {"l": "cmtuc9lcl007v27rv31zrdxye", "d": "2026-09-15", "t": "13:41", "h": 13, "w": 1, "s": "SEATED", "c": "WALK_IN", "p": 5, "q": 10, "a": 6.8, "o": null, "n": "Delaney", "x": false, "ext": false}, {"l": "cmtuc9lcl007v27rv31zrdxye", "d": "2026-09-15", "t": "14:57", "h": 14, "w": 1, "s": "SEATED", "c": "WALK_IN", "p": 4, "q": 10, "a": 16.9, "o": null, "n": "Don", "x": false, "ext": false}, {"l": "cmtuc9lcl007v27rv31zrdxye", "d": "2026-09-15", "t": "15:03", "h": 15, "w": 1, "s": "SEATED", "c": "WALK_IN", "p": 2, "q": 10, "a": 10.2, "o": null, "n": "David", "x": false, "ext": false}, {"l": "cmtuc9lcl007v27rv31zrdxye", "d": "2026-09-15", "t": "15:20", "h": 15, "w": 1, "s": "SEATED", "c": "WALK_IN", "p": 2, "q": 10, "a": 1030.3, "o": null, "n": "Rafael", "x": false, "ext": false}, {"l": "cmtuc9lcl007v27rv31zrdxye", "d": "2026-09-16", "t": "08:32", "h": 8, "w": 2, "s": "SEATED", "c": "WALK_IN", "p": 6, "q": 10, "a": 33.5, "o": null, "n": "Dominic", "x": false, "ext": false}, {"l": "cmtuc9lcl007v27rv31zrdxye", "d": "2026-09-16", "t": "08:32", "h": 8, "w": 2, "s": "SEATED", "c": "WALK_IN", "p": 4, "q": 10, "a": 33.0, "o": null, "n": "Matt", "x": false, "ext": false}, {"l": "cmtuc9lcl007v27rv31zrdxye", "d": "2026-09-16", "t": "11:37", "h": 11, "w": 2, "s": "SEATED", "c": "WALK_IN", "p": 10, "q": 10, "a": 9.7, "o": null, "n": "Andy", "x": false, "ext": false}, {"l": "cmtuc9lcl007v27rv31zrdxye", "d": "2026-09-18", "t": "13:25", "h": 13, "w": 4, "s": "LEFT", "c": "WEB", "p": 2, "q": null, "a": null, "o": null, "n": "Tom", "x": false, "ext": false}, {"l": "cmtuc9lcl007v27rv31zrdxye", "d": "2026-09-18", "t": "13:26", "h": 13, "w": 4, "s": "LEFT", "c": "WEB", "p": 2, "q": null, "a": null, "o": null, "n": "Rohan", "x": false, "ext": false}, {"l": "cmtuc9lcl007v27rv31zrdxye", "d": "2026-09-18", "t": "13:27", "h": 13, "w": 4, "s": "LEFT", "c": "WEB", "p": 2, "q": null, "a": null, "o": null, "n": "Daniel", "x": false, "ext": false}, {"l": "cmtuc9lcl007v27rv31zrdxye", "d": "2026-09-21", "t": "10:02", "h": 10, "w": 0, "s": "SEATED", "c": "WALK_IN", "p": 4, "q": 10, "a": 10.8, "o": null, "n": "Noah", "x": false, "ext": false}, {"l": "cmtuc9lcl007v27rv31zrdxye", "d": "2026-09-21", "t": "10:14", "h": 10, "w": 0, "s": "SEATED", "c": "WALK_IN", "p": 6, "q": 10, "a": 8.6, "o": null, "n": "Valerie", "x": false, "ext": false}, {"l": "cmtuc9lcl007v27rv31zrdxye", "d": "2026-09-21", "t": "11:14", "h": 11, "w": 0, "s": "LEFT", "c": "WEB", "p": 2, "q": null, "a": null, "o": null, "n": "James", "x": false, "ext": false}, {"l": "cmtkfd47b001127rvsf52ayh9", "d": "2026-09-21", "t": "14:55", "h": 14, "w": 0, "s": "SEATED", "c": "WEB", "p": 2, "q": 20, "a": 1209.4, "o": null, "n": "Rohan S.", "x": false, "ext": false}, {"l": "cmtkfd47b001127rvsf52ayh9", "d": "2026-09-22", "t": "11:36", "h": 11, "w": 1, "s": "SEATED", "c": "WALK_IN", "p": 2, "q": 15, "a": 15.2, "o": null, "n": "John D.", "x": false, "ext": false}, {"l": "cmtkfd47b001127rvsf52ayh9", "d": "2026-09-22", "t": "11:53", "h": 11, "w": 1, "s": "SEATED", "c": "WALK_IN", "p": 2, "q": 5, "a": 6.4, "o": null, "n": "Eric H.", "x": false, "ext": false}, {"l": "cmtkfd47b001127rvsf52ayh9", "d": "2026-09-22", "t": "11:54", "h": 11, "w": 1, "s": "SEATED", "c": "WALK_IN", "p": 2, "q": 5, "a": 184.9, "o": null, "n": "Dan S.", "x": false, "ext": false}, {"l": "default-restaurant", "d": "2026-09-22", "t": "14:31", "h": 14, "w": 1, "s": "LEFT", "c": "WEB", "p": 1, "q": 10, "a": null, "o": null, "n": "Rohan S.", "x": false, "ext": true}, {"l": "default-restaurant", "d": "2026-09-22", "t": "14:34", "h": 14, "w": 1, "s": "WAITING", "c": "WEB", "p": 1, "q": 10, "a": null, "o": null, "n": "Rohan S.", "x": false, "ext": false}, {"l": "default-restaurant", "d": "2026-09-22", "t": "14:37", "h": 14, "w": 1, "s": "LEFT", "c": "WEB", "p": 2, "q": 10, "a": null, "o": null, "n": "Ron J.", "x": false, "ext": false}, {"l": "default-restaurant", "d": "2026-09-22", "t": "15:30", "h": 15, "w": 1, "s": "LEFT", "c": "WEB", "p": 2, "q": 10, "a": null, "o": null, "n": "Test", "x": true, "ext": true}, {"l": "cmtkfd47b001127rvsf52ayh9", "d": "2026-09-24", "t": "15:05", "h": 15, "w": 3, "s": "SEATED", "c": "WALK_IN", "p": 1, "q": 5, "a": 1083.0, "o": null, "n": "Dominic", "x": false, "ext": false}, {"l": "cmtkfd47b001127rvsf52ayh9", "d": "2026-09-25", "t": "09:08", "h": 9, "w": 4, "s": "SEATED", "c": "WEB", "p": 2, "q": 5, "a": 186.8, "o": null, "n": "Sumit G.", "x": false, "ext": false}, {"l": "cmtkfd47b001127rvsf52ayh9", "d": "2026-09-25", "t": "14:19", "h": 14, "w": 4, "s": "SEATED", "c": "WEB", "p": 2, "q": 20, "a": 13.3, "o": null, "n": "Jimmy", "x": false, "ext": true}, {"l": "cmtkfd47b001127rvsf52ayh9", "d": "2026-09-25", "t": "14:44", "h": 14, "w": 4, "s": "SEATED", "c": "WEB", "p": 2, "q": 5, "a": 2.9, "o": null, "n": "Rohan S.", "x": false, "ext": false}, {"l": "cmtkfd47b001127rvsf52ayh9", "d": "2026-09-25", "t": "17:01", "h": 17, "w": 4, "s": "LEFT", "c": "WEB", "p": 1, "q": 5, "a": null, "o": null, "n": "Jane D.", "x": false, "ext": false}, {"l": "cmtkfd47b001127rvsf52ayh9", "d": "2026-09-25", "t": "17:03", "h": 17, "w": 4, "s": "NO_SHOW", "c": "WEB", "p": 1, "q": 5, "a": null, "o": null, "n": "Test J.", "x": true, "ext": false}, {"l": "cmtkfd47b001127rvsf52ayh9", "d": "2026-09-25", "t": "17:08", "h": 17, "w": 4, "s": "NO_SHOW", "c": "WALK_IN", "p": 1, "q": 5, "a": null, "o": null, "n": "Test J.", "x": true, "ext": false}, {"l": "cmtkfd47b001127rvsf52ayh9", "d": "2026-09-25", "t": "17:11", "h": 17, "w": 4, "s": "LEFT", "c": "WEB", "p": 1, "q": 5, "a": null, "o": null, "n": "James", "x": false, "ext": false}, {"l": "cmtkfd47b001127rvsf52ayh9", "d": "2026-09-25", "t": "17:24", "h": 17, "w": 4, "s": "NO_SHOW", "c": "WALK_IN", "p": 1, "q": 5, "a": null, "o": null, "n": "Test S.", "x": true, "ext": false}, {"l": "cmtkfd47b001127rvsf52ayh9", "d": "2026-09-25", "t": "17:25", "h": 17, "w": 4, "s": "NO_SHOW", "c": "WALK_IN", "p": 1, "q": 5, "a": null, "o": null, "n": "Test J.", "x": true, "ext": false}, {"l": "cmtkfd47b001127rvsf52ayh9", "d": "2026-09-25", "t": "18:25", "h": 18, "w": 4, "s": "SEATED", "c": "WEB", "p": 5, "q": 15, "a": 0.9, "o": null, "n": "Oda", "x": false, "ext": false}, {"l": "cmtkfd47b001127rvsf52ayh9", "d": "2026-09-25", "t": "18:35", "h": 18, "w": 4, "s": "SEATED", "c": "WEB", "p": 2, "q": 15, "a": 5.4, "o": null, "n": "Jazmin B.", "x": false, "ext": false}, {"l": "cmtkfd47b001127rvsf52ayh9", "d": "2026-09-25", "t": "18:49", "h": 18, "w": 4, "s": "SEATED", "c": "WEB", "p": 3, "q": 5, "a": 9.4, "o": null, "n": "Edith L.", "x": false, "ext": false}, {"l": "cmtkfd47b001127rvsf52ayh9", "d": "2026-09-25", "t": "18:56", "h": 18, "w": 4, "s": "SEATED", "c": "WEB", "p": 5, "q": 15, "a": 2.7, "o": null, "n": "Maribel N.", "x": false, "ext": false}, {"l": "cmtkfd47b001127rvsf52ayh9", "d": "2026-09-25", "t": "19:06", "h": 19, "w": 4, "s": "SEATED", "c": "WEB", "p": 7, "q": 10, "a": 12.0, "o": null, "n": "Adriana", "x": false, "ext": false}, {"l": "cmtkfd47b001127rvsf52ayh9", "d": "2026-09-25", "t": "19:07", "h": 19, "w": 4, "s": "SEATED", "c": "WEB", "p": 7, "q": 10, "a": 11.2, "o": null, "n": "Gus", "x": false, "ext": false}, {"l": "cmtkfd47b001127rvsf52ayh9", "d": "2026-09-25", "t": "19:14", "h": 19, "w": 4, "s": "SEATED", "c": "WEB", "p": 3, "q": 15, "a": 1.6, "o": null, "n": "Liz", "x": false, "ext": false}, {"l": "cmtkfd47b001127rvsf52ayh9", "d": "2026-09-25", "t": "19:17", "h": 19, "w": 4, "s": "SEATED", "c": "WEB", "p": 6, "q": 5, "a": 6.9, "o": null, "n": "Dan", "x": false, "ext": false}, {"l": "cmtkfd47b001127rvsf52ayh9", "d": "2026-09-25", "t": "19:18", "h": 19, "w": 4, "s": "SEATED", "c": "WEB", "p": 2, "q": 5, "a": 7.5, "o": null, "n": "David P.", "x": false, "ext": false}, {"l": "cmtkfd47b001127rvsf52ayh9", "d": "2026-09-26", "t": "11:17", "h": 11, "w": 5, "s": "SEATED", "c": "WEB", "p": 2, "q": 5, "a": 117.8, "o": null, "n": "Jeremy", "x": false, "ext": false}, {"l": "cmtkfd47b001127rvsf52ayh9", "d": "2026-09-26", "t": "16:40", "h": 16, "w": 5, "s": "SEATED", "c": "WEB", "p": 2, "q": 5, "a": 56.0, "o": null, "n": "Alex H.", "x": false, "ext": false}, {"l": "cmtkfd47b001127rvsf52ayh9", "d": "2026-09-26", "t": "17:14", "h": 17, "w": 5, "s": "SEATED", "c": "WEB", "p": 4, "q": 5, "a": 21.4, "o": null, "n": "Yecy", "x": false, "ext": false}, {"l": "cmtkfd47b001127rvsf52ayh9", "d": "2026-09-26", "t": "17:34", "h": 17, "w": 5, "s": "SEATED", "c": "WALK_IN", "p": 7, "q": 5, "a": 7.6, "o": null, "n": "Manny", "x": false, "ext": false}, {"l": "cmtkfd47b001127rvsf52ayh9", "d": "2026-09-26", "t": "17:57", "h": 17, "w": 5, "s": "SEATED", "c": "WEB", "p": 2, "q": 5, "a": 21.9, "o": null, "n": "Monica D.", "x": false, "ext": false}, {"l": "cmtkfd47b001127rvsf52ayh9", "d": "2026-09-26", "t": "18:19", "h": 18, "w": 5, "s": "SEATED", "c": "WALK_IN", "p": 9, "q": 15, "a": 9.4, "o": null, "n": "Mike", "x": false, "ext": false}, {"l": "cmtkfd47b001127rvsf52ayh9", "d": "2026-09-26", "t": "18:30", "h": 18, "w": 5, "s": "SEATED", "c": "WALK_IN", "p": 2, "q": 5, "a": 20.1, "o": null, "n": "Sal", "x": false, "ext": false}, {"l": "cmtkfd47b001127rvsf52ayh9", "d": "2026-09-26", "t": "18:32", "h": 18, "w": 5, "s": "SEATED", "c": "WEB", "p": 9, "q": 5, "a": 4.6, "o": null, "n": "Lorena R.", "x": false, "ext": false}, {"l": "cmtkfd47b001127rvsf52ayh9", "d": "2026-09-26", "t": "18:37", "h": 18, "w": 5, "s": "SEATED", "c": "WEB", "p": 4, "q": 5, "a": 2.9, "o": null, "n": "Eimy G.", "x": false, "ext": false}, {"l": "cmtkfd47b001127rvsf52ayh9", "d": "2026-09-26", "t": "18:39", "h": 18, "w": 5, "s": "SEATED", "c": "WEB", "p": 3, "q": 5, "a": 1.3, "o": null, "n": "Jose", "x": false, "ext": false}, {"l": "cmtkfd47b001127rvsf52ayh9", "d": "2026-09-26", "t": "18:59", "h": 18, "w": 5, "s": "SEATED", "c": "WEB", "p": 4, "q": 5, "a": 3.9, "o": null, "n": "Memo G.", "x": false, "ext": false}, {"l": "cmtkfd47b001127rvsf52ayh9", "d": "2026-09-26", "t": "19:08", "h": 19, "w": 5, "s": "SEATED", "c": "WALK_IN", "p": 4, "q": 15, "a": 13.5, "o": null, "n": "Sam", "x": false, "ext": false}, {"l": "cmtkfd47b001127rvsf52ayh9", "d": "2026-09-26", "t": "19:09", "h": 19, "w": 5, "s": "SEATED", "c": "WALK_IN", "p": 6, "q": 15, "a": 17.8, "o": null, "n": "Emily", "x": false, "ext": false}, {"l": "cmtkfd47b001127rvsf52ayh9", "d": "2026-09-26", "t": "19:23", "h": 19, "w": 5, "s": "SEATED", "c": "WEB", "p": 5, "q": 5, "a": 7.1, "o": null, "n": "Joanna", "x": false, "ext": false}, {"l": "cmtkfd47b001127rvsf52ayh9", "d": "2026-09-26", "t": "19:26", "h": 19, "w": 5, "s": "SEATED", "c": "WEB", "p": 4, "q": 5, "a": 4.9, "o": null, "n": "Vladimir", "x": false, "ext": false}, {"l": "cmtkfd47b001127rvsf52ayh9", "d": "2026-09-26", "t": "19:28", "h": 19, "w": 5, "s": "SEATED", "c": "WEB", "p": 2, "q": 5, "a": 7.6, "o": null, "n": "Divine O.", "x": false, "ext": false}, {"l": "cmtkfd47b001127rvsf52ayh9", "d": "2026-09-26", "t": "19:29", "h": 19, "w": 5, "s": "SEATED", "c": "WEB", "p": 3, "q": 5, "a": 14.7, "o": null, "n": "Michelle", "x": false, "ext": false}, {"l": "cmtkfd47b001127rvsf52ayh9", "d": "2026-09-27", "t": "12:38", "h": 12, "w": 6, "s": "SEATED", "c": "WALK_IN", "p": 4, "q": 5, "a": 17.1, "o": null, "n": "Char", "x": false, "ext": false}, {"l": "cmtkfd47b001127rvsf52ayh9", "d": "2026-09-27", "t": "14:28", "h": 14, "w": 6, "s": "SEATED", "c": "WALK_IN", "p": 3, "q": 5, "a": 3.9, "o": null, "n": "Mary", "x": false, "ext": false}, {"l": "cmtkfd47b001127rvsf52ayh9", "d": "2026-09-27", "t": "17:02", "h": 17, "w": 6, "s": "SEATED", "c": "WEB", "p": 2, "q": 5, "a": 16.4, "o": null, "n": "Brooks", "x": false, "ext": false}, {"l": "cmtkfd47b001127rvsf52ayh9", "d": "2026-09-27", "t": "17:40", "h": 17, "w": 6, "s": "SEATED", "c": "WEB", "p": 5, "q": 5, "a": 0.6, "o": null, "n": "Luis", "x": false, "ext": false}], "exported": "2026-09-28"};
+ORIGINAL.source = 'Waitlist_Export_20260928.xlsx';
+let DATA = ORIGINAL;
+let EXPORT = DATA.exported;
+const WAIT_CAP = 180;
+const OUT = [
+  {key:'SEATED', label:'Seated', v:'--s1'},
+  {key:'NO_SHOW', label:'No-show', v:'--s2'},
+  {key:'LEFT', label:'Walked away', v:'--s3'},
+  {key:'ACTIVE', label:'Still waiting', v:'--s4'}
+];
+const outKey = s => (s==='WAITING'||s==='RUNNING_LATE') ? 'ACTIVE' : s;
+const STATUS_LABEL = {SEATED:'Seated',NO_SHOW:'No-show',LEFT:'Walked away',WAITING:'Waiting',RUNNING_LATE:'Running late'};
+const DOW = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+const MON = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+let locById = Object.fromEntries(DATA.locations.map(l=>[l.id,l]));
+const DEFAULT_LOC_NAME = 'FD Rancho';
+
+const state = {loc:null, preset:'all', from:null, to:null, gran:'day', hideTest:true, logFilter:'all', logAll:false};
+
+/* ---------- date helpers (YYYY-MM-DD strings, UTC math) ---------- */
+const toD = s => new Date(s+'T00:00:00Z');
+const fromD = d => d.toISOString().slice(0,10);
+const addDays = (s,n) => { const d=toD(s); d.setUTCDate(d.getUTCDate()+n); return fromD(d); };
+const diffDays = (a,b) => Math.round((toD(b)-toD(a))/864e5);
+const fmtDay = s => { const d=toD(s); return MON[d.getUTCMonth()]+' '+d.getUTCDate(); };
+const fmtDayLong = s => { const d=toD(s); return DOW[(d.getUTCDay()+6)%7]+', '+MON[d.getUTCMonth()]+' '+d.getUTCDate(); };
+const weekStart = s => { const d=toD(s); const w=(d.getUTCDay()+6)%7; return addDays(s,-w); };
+const fmtTime = t => { let [h,m]=t.split(':').map(Number); const ap=h<12?'AM':'PM'; h=h%12||12; return h+':'+String(m).padStart(2,'0')+' '+ap; };
+const fmtHour = h => (h%12||12)+(h<12?'a':'p');
+const median = a => { if(!a.length) return null; const s=[...a].sort((x,y)=>x-y); const m=s.length>>1; return s.length%2?s[m]:(s[m-1]+s[m])/2; };
+const pct = (n,d) => d ? Math.round(n/d*100) : null;
+const css = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+
+/* ---------- filtering ---------- */
+function baseEntries(loc){ return DATA.entries.filter(e => (loc==='all'||e.l===loc) && !(state.hideTest && e.x)); }
+function firstDate(loc){ const es=baseEntries(loc); return es.length ? es[0].d : EXPORT; }
+function range(){
+  if(state.preset==='custom') return [state.from, state.to];
+  if(state.preset==='all') return [firstDate(state.loc), EXPORT];
+  const n=+state.preset; return [addDays(EXPORT,-(n-1)), EXPORT];
+}
+const inRange = (es,a,b) => es.filter(e=>e.d>=a && e.d<=b);
+
+function stats(es){
+  const n=es.length, guests=es.reduce((s,e)=>s+e.p,0);
+  const by={SEATED:0,NO_SHOW:0,LEFT:0,ACTIVE:0}; es.forEach(e=>by[outKey(e.s)]++);
+  const closed=by.SEATED+by.NO_SHOW+by.LEFT;
+  const seatedW=es.filter(e=>e.a!=null);
+  const valid=seatedW.filter(e=>e.a<=WAIT_CAP);
+  const withQ=valid.filter(e=>e.q!=null);
+  return {n,guests,by,closed,
+    seatedRate:pct(by.SEATED,closed), noShowRate:pct(by.NO_SHOW,closed), leftRate:pct(by.LEFT,closed),
+    medWait:median(valid.map(e=>e.a)), medQuote:median(es.filter(e=>e.q!=null).map(e=>e.q)),
+    withinQuote:pct(withQ.filter(e=>e.a<=e.q).length, withQ.length), withQn:withQ.length,
+    validN:valid.length, lateN:seatedW.length-valid.length,
+    days:new Set(es.map(e=>e.d)).size, last:es.length?es[es.length-1].d:null};
+}
+
+/* ---------- SVG helpers ---------- */
+const NS='http://www.w3.org/2000/svg';
+function el(tag, attrs={}, parent){ const n=document.createElementNS(NS,tag); for(const k in attrs) n.setAttribute(k,attrs[k]); if(parent) parent.appendChild(n); return n; }
+function txt(parent, x, y, s, attrs={}){ const t=el('text',{x,y,...attrs},parent); t.textContent=s; return t; }
+function topRounded(x,y,w,h,r){ r=Math.min(r,h,w/2); if(h<=0) return ''; return `M${x},${y+h}V${y+r}Q${x},${y} ${x+r},${y}H${x+w-r}Q${x+w},${y} ${x+w},${y+r}V${y+h}Z`; }
+function rightRounded(x,y,w,h,r){ r=Math.min(r,w,h/2); if(w<=0) return ''; return `M${x},${y}H${x+w-r}Q${x+w},${y} ${x+w},${y+r}V${y+h-r}Q${x+w},${y+h} ${x+w-r},${y+h}H${x}Z`; }
+function niceMax(v){ if(v<=4) return Math.max(v,1); const p=Math.pow(10,Math.floor(Math.log10(v))); const f=v/p; const n=f<=1?1:f<=2?2:f<=2.5?2.5:f<=5?5:10; return n*p; }
+function ticks(max){ const cands=[1,2,5,10,20,25,50,100]; let step=cands.find(s=>max/s<=5)||Math.ceil(max/5); const t=[]; for(let v=0; v<=max+1e-9; v+=step) t.push(v); return t; }
+function svgFor(host,w,h){ host.innerHTML=''; const s=el('svg',{viewBox:`0 0 ${w} ${h}`,role:'img'}); host.appendChild(s); return s; }
+
+/* ---------- tooltip ---------- */
+const tip=document.getElementById('tip');
+function showTip(ev, title, rows){
+  tip.replaceChildren();
+  const t=document.createElement('div'); t.className='tt'; t.textContent=title; tip.appendChild(t);
+  rows.forEach(r=>{ const row=document.createElement('div'); row.className='row';
+    const sp=document.createElement('span'); if(r.c){ const i=document.createElement('i'); i.style.background=r.c; sp.appendChild(i);} sp.appendChild(document.createTextNode(r.k));
+    const b=document.createElement('b'); b.textContent=r.v; row.append(sp,b); tip.appendChild(row); });
+  tip.style.opacity=1; moveTip(ev);
+}
+function moveTip(ev){ const pad=14, r=tip.getBoundingClientRect(); let x=ev.clientX+pad, y=ev.clientY+pad;
+  if(x+r.width>innerWidth-8) x=ev.clientX-r.width-pad; if(y+r.height>innerHeight-8) y=ev.clientY-r.height-pad; tip.style.left=Math.max(8,x)+'px'; tip.style.top=Math.max(8,y)+'px'; }
+function hideTip(){ tip.style.opacity=0; }
+function bindTip(node, title, rowsFn){
+  node.setAttribute('tabindex','0');
+  node.addEventListener('pointerenter',ev=>showTip(ev,title,rowsFn()));
+  node.addEventListener('pointermove',moveTip);
+  node.addEventListener('pointerleave',hideTip);
+  node.addEventListener('focus',()=>{ const b=node.getBoundingClientRect(); showTip({clientX:b.left+b.width/2,clientY:b.top},title,rowsFn()); });
+  node.addEventListener('blur',hideTip);
+}
+
+/* ---------- renderers ---------- */
+function renderContext(a,b){
+  const host=document.getElementById('context'); host.replaceChildren();
+  const h=document.createElement('h2');
+  const meta=document.createElement('span'); meta.className='meta';
+  if(state.loc==='all'){ h.textContent='All locations'; meta.textContent=DATA.locations.length+' locations'; }
+  else { const l=locById[state.loc]; h.textContent=l.name;
+    meta.textContent=[l.address, l.tz.replace('America/','').replace('_',' ')+' time', 'on the waitlist since '+fmtDay(l.created)].filter(Boolean).join(' · ');
+  }
+  const per=document.createElement('span'); per.className='pill';
+  per.textContent=fmtDayLong(a)+' – '+fmtDayLong(b)+' · '+(diffDays(a,b)+1)+' days';
+  host.append(h,meta,per);
+  if(state.loc!=='all'){ const l=locById[state.loc]; const p=document.createElement('span'); p.className='pill';
+    const i=document.createElement('i'); i.style.background=l.sms?'var(--s3)':'var(--axis)'; p.append(i,document.createTextNode(l.sms?'SMS alerts on':'SMS alerts off')); host.append(p); }
+}
+
+function renderKpis(cur, prev, prevLabel){
+  const host=document.getElementById('kpis'); host.replaceChildren();
+  const tile=(k,v,unit,d)=>{ const t=document.createElement('div'); t.className='kpi';
+    const kk=document.createElement('div'); kk.className='k'; kk.textContent=k;
+    const vv=document.createElement('div'); vv.className='v'; vv.textContent=v==null?'–':v; if(unit&&v!=null){const s=document.createElement('small'); s.textContent=unit; vv.appendChild(s);}
+    const dd=document.createElement('div'); dd.className='d'; if(d instanceof Node) dd.appendChild(d); else dd.textContent=d||'';
+    t.append(kk,vv,dd); host.appendChild(t); };
+  let delta='';
+  if(prev){ const diff=cur.n-prev.n; const f=document.createDocumentFragment(); const b=document.createElement('b');
+    b.textContent=(diff>0?'+':diff<0?'−':'±')+Math.abs(diff); b.className=diff>0?'up':diff<0?'down':''; f.append(b,document.createTextNode(' vs '+prevLabel)); delta=f; }
+  else delta=cur.guests+' guests';
+  tile('Parties joined', cur.n, '', delta);
+  tile('Seated', cur.seatedRate, cur.seatedRate==null?'':'%', cur.by.SEATED+' of '+cur.closed+' closed entries');
+  tile('No-shows', cur.noShowRate, cur.noShowRate==null?'':'%', cur.by.NO_SHOW+' parties');
+  tile('Walked away', cur.leftRate, cur.leftRate==null?'':'%', cur.by.LEFT+' removed themselves');
+  tile('Median wait', cur.medWait==null?null:Math.round(cur.medWait), ' min', cur.medQuote!=null?'Median quote '+cur.medQuote+' min':'No quotes recorded');
+  tile('Seated within quote', cur.withinQuote, cur.withinQuote==null?'':'%', cur.withQn?cur.withQn+' seated parties with a quote':'No quoted seated parties');
+}
+
+function buildBuckets(es,a,b){
+  const buckets=[]; const idx={};
+  if(state.gran==='day'){ for(let d=a; d<=b; d=addDays(d,1)){ idx[d]=buckets.length; buckets.push({key:d,label:fmtDay(d),title:fmtDayLong(d),c:{SEATED:0,NO_SHOW:0,LEFT:0,ACTIVE:0}}); } es.forEach(e=>buckets[idx[e.d]].c[outKey(e.s)]++); }
+  else { for(let w=weekStart(a); w<=b; w=addDays(w,7)){ idx[w]=buckets.length; buckets.push({key:w,label:fmtDay(w),title:'Week of '+fmtDayLong(w),c:{SEATED:0,NO_SHOW:0,LEFT:0,ACTIVE:0}}); } es.forEach(e=>buckets[idx[weekStart(e.d)]].c[outKey(e.s)]++); }
+  buckets.forEach(bk=>bk.total=OUT.reduce((s,o)=>s+bk.c[o.key],0));
+  return buckets;
+}
+
+function renderTrend(es,a,b){
+  const host=document.getElementById('trend');
+  const bk=buildBuckets(es,a,b);
+  const active=bk.filter(x=>x.total>0).length;
+  const peak=bk.reduce((m,x)=>x.total>m.total?x:m,{total:0});
+  document.getElementById('trendCap').textContent = es.length
+    ? `${active} of ${bk.length} ${state.gran==='day'?'days':'weeks'} had waitlist activity. Busiest: ${peak.title} (${peak.total} parties).`
+    : 'No waitlist activity in this period.';
+  const W=Math.max(320,host.clientWidth||900), H=250, m={l:34,r:8,t:18,b:28};
+  const s=svgFor(host,W,H); s.setAttribute('aria-label','Parties joined per '+state.gran+', stacked by outcome');
+  const iw=W-m.l-m.r, ih=H-m.t-m.b;
+  const max=niceMax(Math.max(1,...bk.map(x=>x.total))); const tk=ticks(max); const top=tk[tk.length-1];
+  const y=v=>m.t+ih-(v/top)*ih;
+  tk.forEach(v=>{ el('line',{x1:m.l,x2:W-m.r,y1:y(v),y2:y(v),stroke:v===0?css('--axis'):css('--grid'),'stroke-width':1},s); txt(s,m.l-8,y(v)+4,v,{'text-anchor':'end'}); });
+  const band=iw/bk.length, bw=Math.max(2,Math.min(24,band*0.62));
+  const every=Math.ceil(bk.length/Math.max(2,Math.floor(iw/58)));
+  bk.forEach((x,i)=>{
+    const cx=m.l+band*i+band/2, g=el('g',{class:'col'},s);
+    let acc=0; const segs=OUT.filter(o=>x.c[o.key]>0);
+    segs.forEach((o,j)=>{ const v=x.c[o.key]; const y0=y(acc), y1=y(acc+v); const gap=j>0?2:0; const hh=Math.max(0,y0-y1-gap);
+      const isTop=j===segs.length-1;
+      if(isTop) el('path',{d:topRounded(cx-bw/2,y1,bw,hh,4),fill:css(o.v),class:'mark'},g);
+      else el('rect',{x:cx-bw/2,y:y1,width:bw,height:hh,fill:css(o.v),class:'mark'},g);
+      acc+=v; });
+    if(x.total>0 && (x===peak || bk.length<=16)) txt(s,cx,y(x.total)-6,x.total,{'text-anchor':'middle',class:'vl'});
+    if(i%every===0) txt(s,cx,H-8,x.label,{'text-anchor':'middle'});
+    const hit=el('rect',{x:m.l+band*i,y:m.t,width:band,height:ih,class:'hit'},g);
+    bindTip(hit,x.title,()=>[{k:'Parties joined',v:x.total},...OUT.map(o=>({k:o.label,v:x.c[o.key],c:css(o.v)}))]);
+  });
+}
+
+function renderLegend(){ ['outLegend','chLegend'].forEach(id=>{
+  const host=document.getElementById(id); host.replaceChildren();
+  OUT.forEach(o=>{ const sp=document.createElement('span'); const i=document.createElement('i'); i.style.background=`var(${o.v})`; sp.append(i,document.createTextNode(o.label)); host.appendChild(sp); }); });
+}
+
+function renderHeat(es){
+  const host=document.getElementById('heat');
+  const hours=[]; const hs=es.map(e=>e.h); const h0=Math.min(8,...hs), h1=Math.max(21,...hs); for(let h=h0;h<=h1;h++) hours.push(h);
+  const grid=DOW.map(()=>hours.map(()=>0)); es.forEach(e=>grid[e.w][e.h-h0]++);
+  const max=Math.max(0,...grid.flat());
+  const W=Math.max(300,host.clientWidth||520), m={l:34,r:4,t:4,b:22};
+  const cw=(W-m.l-m.r)/hours.length, ch=Math.min(26,Math.max(18,cw*0.9)), H=m.t+ch*7+m.b;
+  const s=svgFor(host,W,H); s.setAttribute('aria-label','Heatmap of parties joining by weekday and hour');
+  const ramp=['--h1','--h2','--h3','--h4','--h5','--h6'];
+  DOW.forEach((d,r)=>{ txt(s,m.l-8,m.t+ch*r+ch/2+4,d,{'text-anchor':'end'});
+    hours.forEach((h,c)=>{ const v=grid[r][c];
+      const fill=v===0?css('--h0'):css(ramp[Math.max(0,Math.ceil(v/max*ramp.length)-1)]);
+      const cell=el('rect',{x:m.l+cw*c+1,y:m.t+ch*r+1,width:Math.max(1,cw-2),height:ch-2,rx:3,fill,class:'cell'},s);
+      bindTip(cell,DOW[r]+' · '+fmtHour(h).replace('a',' AM').replace('p',' PM')+'–'+fmtHour(h+1).replace('a',' AM').replace('p',' PM'),()=>[{k:'Parties joined',v}]);
+    }); });
+  const step=cw<22?3:cw<34?2:1;
+  hours.forEach((h,c)=>{ if(c%step===0) txt(s,m.l+cw*c+cw/2,H-6,fmtHour(h),{'text-anchor':'middle'}); });
+  if(!es.length){ const n=document.createElement('div'); n.className='empty'; n.textContent='No parties in this period.'; host.replaceChildren(n); }
+}
+
+function renderWaits(es, st){
+  const host=document.getElementById('waits');
+  const B=[[0,10,'0–10'],[10,20,'10–20'],[20,30,'20–30'],[30,45,'30–45'],[45,60,'45–60'],[60,90,'60–90'],[90,WAIT_CAP+0.01,'90–180']];
+  const vals=es.filter(e=>e.a!=null && e.a<=WAIT_CAP).map(e=>e.a);
+  const c=B.map(([lo,hi])=>vals.filter(v=>v>=lo && v<hi).length);
+  const note=document.getElementById('waitNote'); note.replaceChildren();
+  if(!vals.length){ const n=document.createElement('div'); n.className='empty'; n.textContent='No seated parties with a usable wait time in this period.'; host.replaceChildren(n);
+    if(st.lateN) note.textContent=st.lateN+' seated '+(st.lateN===1?'entry was':'entries were')+' closed more than 3 hours after joining and left out.'; return; }
+  const W=Math.max(300,host.clientWidth||520), H=200, m={l:30,r:6,t:18,b:34};
+  const s=svgFor(host,W,H); s.setAttribute('aria-label','Histogram of actual wait minutes');
+  const iw=W-m.l-m.r, ih=H-m.t-m.b; const top=ticks(niceMax(Math.max(1,...c))).slice(-1)[0]; const y=v=>m.t+ih-(v/top)*ih;
+  ticks(top).forEach(v=>{ el('line',{x1:m.l,x2:W-m.r,y1:y(v),y2:y(v),stroke:v===0?css('--axis'):css('--grid')},s); txt(s,m.l-8,y(v)+4,v,{'text-anchor':'end'}); });
+  const band=iw/B.length, bw=Math.min(24,band*0.6);
+  B.forEach((bb,i)=>{ const cx=m.l+band*i+band/2; const g=el('g',{class:'col'},s);
+    if(c[i]>0){ el('path',{d:topRounded(cx-bw/2,y(c[i]),bw,y(0)-y(c[i]),4),fill:css('--s1'),class:'mark'},g); txt(s,cx,y(c[i])-6,c[i],{'text-anchor':'middle',class:'vl'}); }
+    txt(s,cx,H-18,bb[2],{'text-anchor':'middle'});
+    const hit=el('rect',{x:m.l+band*i,y:m.t,width:band,height:ih,class:'hit'},g);
+    bindTip(hit,bb[2]+' minutes',()=>[{k:'Seated parties',v:c[i]},{k:'Share',v:Math.round(c[i]/vals.length*100)+'%'}]); });
+  txt(s,m.l+iw/2,H-2,'minutes waited',{'text-anchor':'middle'});
+  const b=document.createElement('b'); b.textContent=Math.round(st.medWait)+' min';
+  note.append('Median actual wait ',b);
+  if(st.medQuote!=null){ const q=document.createElement('b'); q.textContent=st.medQuote+' min'; note.append(' against a median quote of ',q); }
+  note.append(' across '+vals.length+' seated parties.');
+  if(st.lateN) note.append(' '+st.lateN+' seated '+(st.lateN===1?'entry was':'entries were')+' closed more than 3 hours after joining and left out.');
+}
+
+function renderChannel(es){
+  const host=document.getElementById('channel');
+  const rows=[['WALK_IN','Walk-in'],['WEB','Web check-in']].map(([k,l])=>{ const sub=es.filter(e=>e.c===k); const c={SEATED:0,NO_SHOW:0,LEFT:0,ACTIVE:0}; sub.forEach(e=>c[outKey(e.s)]++); return {l,n:sub.length,c}; });
+  if(!es.length){ const n=document.createElement('div'); n.className='empty'; n.textContent='No parties in this period.'; host.replaceChildren(n); return; }
+  const W=Math.max(300,host.clientWidth||520), rh=24, gapR=38, m={l:92,r:44,t:8,b:26}, H=m.t+rows.length*(rh+gapR)-gapR+m.b;
+  const s=svgFor(host,W,H); s.setAttribute('aria-label','Parties by join channel, stacked by outcome');
+  const iw=W-m.l-m.r; const max=Math.max(1,...rows.map(r=>r.n)); const x=v=>(v/max)*iw;
+  rows.forEach((r,i)=>{ const yy=m.t+i*(rh+gapR);
+    txt(s,0,yy+rh/2+4,r.l,{fill:css('--ink2'),'font-size':12});
+    let acc=0; const segs=OUT.filter(o=>r.c[o.key]>0);
+    const g=el('g',{class:'col'},s);
+    segs.forEach((o,j)=>{ const v=r.c[o.key]; const x0=m.l+x(acc)+(j>0?2:0); const w=Math.max(0,x(v)-(j>0?2:0)); const last=j===segs.length-1;
+      if(last) el('path',{d:rightRounded(x0,yy,w,rh,4),fill:css(o.v),class:'mark'},g); else el('rect',{x:x0,y:yy,width:w,height:rh,fill:css(o.v),class:'mark'},g); acc+=v; });
+    txt(s,m.l+x(r.n)+8,yy+rh/2+4,r.n,{class:'vl'});
+    const sr=pct(r.c.SEATED,r.c.SEATED+r.c.NO_SHOW+r.c.LEFT);
+    txt(s,m.l,yy+rh+15,r.n?`${sr==null?'–':sr+'%'} seated · ${r.c.NO_SHOW} no-show · ${r.c.LEFT} walked away`:'No parties',{'font-size':11});
+    const hit=el('rect',{x:m.l,y:yy-4,width:iw,height:rh+8,class:'hit'},g);
+    bindTip(hit,r.l,()=>[{k:'Parties',v:r.n},...OUT.map(o=>({k:o.label,v:r.c[o.key],c:css(o.v)}))]);
+  });
+}
+
+function renderParty(es){
+  const host=document.getElementById('party');
+  if(!es.length){ const n=document.createElement('div'); n.className='empty'; n.textContent='No parties in this period.'; host.replaceChildren(n); return; }
+  const sizes=[1,2,3,4,5,6,7,8,9,10]; const c=sizes.map(z=>es.filter(e=>(z===10?e.p>=10:e.p===z)).length);
+  const W=Math.max(300,host.clientWidth||520), H=190, m={l:30,r:6,t:18,b:34};
+  const s=svgFor(host,W,H); s.setAttribute('aria-label','Parties by party size');
+  const iw=W-m.l-m.r, ih=H-m.t-m.b; const top=ticks(niceMax(Math.max(1,...c))).slice(-1)[0]; const y=v=>m.t+ih-(v/top)*ih;
+  ticks(top).forEach(v=>{ el('line',{x1:m.l,x2:W-m.r,y1:y(v),y2:y(v),stroke:v===0?css('--axis'):css('--grid')},s); txt(s,m.l-8,y(v)+4,v,{'text-anchor':'end'}); });
+  const band=iw/sizes.length, bw=Math.min(24,band*0.6);
+  sizes.forEach((z,i)=>{ const cx=m.l+band*i+band/2; const g=el('g',{class:'col'},s);
+    if(c[i]>0){ el('path',{d:topRounded(cx-bw/2,y(c[i]),bw,y(0)-y(c[i]),4),fill:css('--s1'),class:'mark'},g); txt(s,cx,y(c[i])-6,c[i],{'text-anchor':'middle',class:'vl'}); }
+    txt(s,cx,H-18,z===10?'10+':z,{'text-anchor':'middle'});
+    const hit=el('rect',{x:m.l+band*i,y:m.t,width:band,height:ih,class:'hit'},g);
+    bindTip(hit,'Party of '+(z===10?'10+':z),()=>[{k:'Parties',v:c[i]},{k:'Share',v:Math.round(c[i]/es.length*100)+'%'}]); });
+  txt(s,m.l+iw/2,H-2,'guests in party',{'text-anchor':'middle'});
+}
+
+function renderCompare(a,b){
+  const t=document.getElementById('cmp'); t.replaceChildren();
+  const head=['Location','Parties','Guests','Seated','No-show','Walked away','Median wait','Active days','Last activity'];
+  const thead=document.createElement('thead'); const hr=document.createElement('tr');
+  head.forEach((h,i)=>{ const th=document.createElement('th'); th.textContent=h; if(i>0) th.className='num'; hr.appendChild(th); }); thead.appendChild(hr);
+  const tb=document.createElement('tbody');
+  const rows=DATA.locations.map(l=>({l,st:stats(inRange(baseEntries(l.id),a,b))})).sort((x,y)=>y.st.n-x.st.n||x.l.name.localeCompare(y.l.name));
+  const all={l:{id:'all',name:'All locations'},st:stats(inRange(baseEntries('all'),a,b))};
+  [all,...rows].forEach(({l,st})=>{ const tr=document.createElement('tr'); if(l.id===state.loc) tr.className='sel'; tr.tabIndex=0;
+    const cells=[l.name,st.n,st.guests,st.seatedRate==null?'–':st.seatedRate+'%',st.noShowRate==null?'–':st.noShowRate+'%',st.leftRate==null?'–':st.leftRate+'%',st.medWait==null?'–':Math.round(st.medWait)+' min',st.days,st.last?fmtDay(st.last):'–'];
+    cells.forEach((v,i)=>{ const td=document.createElement('td'); td.textContent=v; if(i>0) td.className='num'; if(i>0 && !st.n) td.classList.add('muted'); tr.appendChild(td); });
+    const go=()=>{ state.loc=l.id; document.getElementById('loc').value=l.id; render(); window.scrollTo({top:0,behavior:'smooth'}); };
+    tr.addEventListener('click',go); tr.addEventListener('keydown',e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); go(); } });
+    tb.appendChild(tr); });
+  t.append(thead,tb);
+}
+
+function renderLog(es){
+  const f=document.getElementById('logFilter'); f.replaceChildren();
+  const opts=[['all','All'],['SEATED','Seated'],['NO_SHOW','No-show'],['LEFT','Walked away'],['ACTIVE','Waiting']];
+  opts.forEach(([k,l])=>{ const b=document.createElement('button'); b.type='button'; const n=k==='all'?es.length:es.filter(e=>outKey(e.s)===k).length; b.textContent=l+' '+n; b.setAttribute('aria-pressed',state.logFilter===k); b.onclick=()=>{ state.logFilter=k; state.logAll=false; renderLog(es); }; f.appendChild(b); });
+  const rows=[...es].filter(e=>state.logFilter==='all'||outKey(e.s)===state.logFilter).reverse();
+  document.getElementById('logCap').textContent = rows.length ? `${rows.length} ${rows.length===1?'entry':'entries'}, newest first.` : 'No entries match.';
+  const t=document.getElementById('log'); t.replaceChildren();
+  const showLoc=state.loc==='all';
+  const head=['Date','Joined',...(showLoc?['Location']:[]),'Guest','Party','Channel','Quoted','Actual wait','Outcome','Occasion'];
+  const thead=document.createElement('thead'); const hr=document.createElement('tr');
+  head.forEach(h=>{ const th=document.createElement('th'); th.textContent=h; if(['Party','Quoted','Actual wait'].includes(h)) th.className='num'; hr.appendChild(th); }); thead.appendChild(hr);
+  const tb=document.createElement('tbody');
+  const LIM=20; const shown=state.logAll?rows:rows.slice(0,LIM);
+  shown.forEach(e=>{ const tr=document.createElement('tr');
+    const add=(v,cls)=>{ const td=document.createElement('td'); if(v instanceof Node) td.appendChild(v); else td.textContent=v; if(cls) td.className=cls; tr.appendChild(td); return td; };
+    add(fmtDayLong(e.d)); add(fmtTime(e.t),'num'); if(showLoc) add(locById[e.l].name);
+    const g=add(e.n); if(e.x){ const s=document.createElement('span'); s.className='tag'; s.textContent='test'; g.appendChild(s); }
+    add(e.p,'num'); add(e.c==='WEB'?'Web':'Walk-in');
+    add(e.q==null?'–':e.q+' min','num'+(e.q==null?' muted':''));
+    if(e.a==null) add('–','num muted'); else if(e.a>WAIT_CAP) add('closed late','num muted'); else add(Math.round(e.a)+' min','num');
+    const o=OUT.find(x=>x.key===outKey(e.s)); const st=document.createElement('span'); st.className='status'; const i=document.createElement('i'); i.style.background=`var(${o.v})`; st.append(i,document.createTextNode(STATUS_LABEL[e.s]||e.s)); add(st);
+    add(e.o||'–',e.o?'':'muted');
+    tb.appendChild(tr); });
+  t.append(thead,tb);
+  const more=document.getElementById('logMore'); more.hidden=rows.length<=LIM;
+  more.textContent=state.logAll?'Show fewer':'Show all '+rows.length+' entries';
+  more.onclick=()=>{ state.logAll=!state.logAll; renderLog(es); };
+}
+
+/* ---------- orchestration ---------- */
+function syncControls(a,b){
+  document.querySelectorAll('#presets button').forEach(x=>x.setAttribute('aria-pressed',x.dataset.p===state.preset));
+  document.querySelectorAll('#gran button').forEach(x=>x.setAttribute('aria-pressed',x.dataset.g===state.gran));
+  document.getElementById('from').value=a; document.getElementById('to').value=b;
+}
+function render(){
+  let [a,b]=range(); if(a>b) [a,b]=[b,a];
+  syncControls(a,b);
+  const base=baseEntries(state.loc); const es=inRange(base,a,b); const st=stats(es);
+  let prev=null, prevLabel='';
+  if(state.preset!=='all'){ const len=diffDays(a,b)+1; const pb=addDays(a,-1), pa=addDays(a,-len); prev=stats(inRange(base,pa,pb)); prevLabel='prior '+len+' days'; }
+  renderContext(a,b); renderKpis(st,prev,prevLabel); renderLegend();
+  renderTrend(es,a,b); renderHeat(es); renderWaits(es,st); renderChannel(es); renderParty(es);
+  renderCompare(a,b); renderLog(es);
+}
+/* ---------- dataset loading ---------- */
+function populateLocations(keep){
+  const sel=document.getElementById('loc'); sel.replaceChildren();
+  locById=Object.fromEntries(DATA.locations.map(l=>[l.id,l]));
+  const counts=Object.fromEntries(DATA.locations.map(l=>[l.id,DATA.entries.filter(e=>e.l===l.id).length]));
+  const ordered=[...DATA.locations].sort((x,y)=>counts[y.id]-counts[x.id]||x.name.localeCompare(y.name));
+  const oa=document.createElement('option'); oa.value='all'; oa.textContent='All locations'; sel.appendChild(oa);
+  ordered.forEach(l=>{ const o=document.createElement('option'); o.value=l.id; o.textContent=l.name+(counts[l.id]?'':' (no entries)'); sel.appendChild(o); });
+  const def=DATA.locations.find(l=>l.name.trim().toLowerCase()===DEFAULT_LOC_NAME.toLowerCase());
+  state.loc = (keep && (keep==='all'||locById[keep])) ? keep : (def?def.id:(ordered[0]?ordered[0].id:'all'));
+  sel.value=state.loc;
+}
+function useDataset(ds, keepLoc){
+  DATA=ds; EXPORT=ds.exported; state.logFilter='all'; state.logAll=false;
+  if(state.preset==='custom') state.preset='all';
+  populateLocations(keepLoc);
+  const isOrig = ds===ORIGINAL;
+  document.getElementById('srcName').textContent=(isOrig?'Built-in data: ':'Uploaded: ')+ds.source+' · '+ds.entries.length+' entries · through '+fmtDay(ds.exported);
+  document.getElementById('resetData').hidden=isOrig;
+  render();
+}
+function setMsg(s,cls){ const m=document.getElementById('srcMsg'); m.textContent=s||''; m.className='srcmsg'+(cls?' '+cls:''); }
+
+let xlsxReady=null;
+function loadXlsx(){
+  if(window.XLSX) return Promise.resolve();
+  if(!xlsxReady) xlsxReady=new Promise((res,rej)=>{ const s=document.createElement('script'); s.src='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js'; s.onload=res; s.onerror=()=>{ xlsxReady=null; rej(new Error('The spreadsheet reader could not load. Check your connection and try again.')); }; document.head.appendChild(s); });
+  return xlsxReady;
+}
+function toMs(v){
+  if(v==null||v==='') return null;
+  if(typeof v==='number') return Math.round((v-25569)*864e5);
+  if(v instanceof Date) return v.getTime();
+  const s=String(v).trim().replace(' ','T'); const d=new Date(/(Z|[+-]\d\d:?\d\d)$/.test(s)?s:s+'Z');
+  return isNaN(d)?null:d.getTime();
+}
+const fmtCache={};
+function localParts(ms,tz){
+  let f=fmtCache[tz];
+  if(!f){ try{ f=new Intl.DateTimeFormat('en-US',{timeZone:tz,year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hourCycle:'h23',weekday:'short'}); }
+          catch(e){ f=new Intl.DateTimeFormat('en-US',{timeZone:'UTC',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hourCycle:'h23',weekday:'short'}); }
+          fmtCache[tz]=f; }
+  const p={}; f.formatToParts(new Date(ms)).forEach(x=>p[x.type]=x.value);
+  const h=(+p.hour)%24;
+  return {d:`${p.year}-${p.month}-${p.day}`, t:String(h).padStart(2,'0')+':'+p.minute, h, w:DOW.indexOf(p.weekday)};
+}
+const bool=v=>v===true||v===1||String(v).toLowerCase()==='true';
+const TEST_RE=/^(test|chk|new guest|t 3 s)/i;
+function maskName(n){ const p=String(n||'Guest').trim().split(/\s+/); const cap=s=>s.charAt(0).toUpperCase()+s.slice(1).toLowerCase(); return p.length===1?cap(p[0]):cap(p[0])+' '+p[p.length-1][0].toUpperCase()+'.'; }
+function processWorkbook(wb, fileName){
+  const sheet=prefix=>{ const n=wb.SheetNames.find(s=>s.toLowerCase().startsWith(prefix)); return n?XLSX.utils.sheet_to_json(wb.Sheets[n],{defval:null,raw:true}):null; };
+  const G=sheet('guest_entries'), R=sheet('restaurants')||[], S=sheet('restaurant_settings')||[];
+  if(!G) throw new Error('This file has no guest_entries sheet. Upload the Waitlist export .xlsx from the admin console.');
+  const need=['restaurant_id','joined_at','status','party_size'];
+  const miss=need.filter(k=>!(G.length&&k in G[0]));
+  if(G.length && miss.length) throw new Error('The guest_entries sheet is missing columns: '+miss.join(', ')+'.');
+  const set=Object.fromEntries(S.map(s=>[s.restaurant_id,s]));
+  const locs=R.filter(r=>r.id).map(r=>{ const se=set[r.id]||{}; const c=toMs(r.created_at);
+    return {id:String(r.id),name:String(r.name||r.id),tz:r.timezone||'UTC',address:r.address||null,created:c?new Date(c).toISOString().slice(0,10):null,
+      sms:bool(se.sms_enabled),defaultWait:se.default_estimated_wait_min??null,maxQueue:se.max_queue_size??null}; });
+  const byId=Object.fromEntries(locs.map(l=>[l.id,l]));
+  const entries=[]; let maxD='';
+  G.forEach(g=>{
+    const j=toMs(g.joined_at); if(j==null||!g.restaurant_id) return;
+    const lid=String(g.restaurant_id);
+    if(!byId[lid]){ byId[lid]={id:lid,name:lid,tz:'UTC',address:null,created:null,sms:false}; locs.push(byId[lid]); }
+    const lp=localParts(j,byId[lid].tz);
+    const sa=toMs(g.seated_at); const q=g.estimated_wait_min;
+    const name=String(g.full_name||'Guest').trim();
+    entries.push({l:lid,d:lp.d,t:lp.t,h:lp.h,w:lp.w,s:String(g.status||'').toUpperCase(),c:String(g.join_channel||'WALK_IN').toUpperCase(),
+      p:Math.max(1,parseInt(g.party_size,10)||1),q:(q==null||q===''||isNaN(+q))?null:Math.round(+q),
+      a:sa!=null?Math.round((sa-j)/6000)/10:null,o:g.special_occasion||null,n:maskName(name),x:TEST_RE.test(name),ext:bool(g.extension_used),_ms:j});
+    [g.updated_at,g.seated_at].forEach(v=>{ const m=toMs(v); if(m!=null){ const d=localParts(m,byId[lid].tz).d; if(d>maxD) maxD=d; } });
+    if(lp.d>maxD) maxD=lp.d;
+  });
+  if(!entries.length) throw new Error('No waitlist entries were found in this file.');
+  entries.sort((a,b)=>a._ms-b._ms); entries.forEach(e=>delete e._ms);
+  locs.forEach(l=>{ if(!l.created){ const f=entries.find(e=>e.l===l.id); l.created=f?f.d:maxD; } });
+  const fm=/(\d{4})(\d{2})(\d{2})/.exec(fileName||''); let exported=maxD;
+  if(fm){ const fd=`${fm[1]}-${fm[2]}-${fm[3]}`; if(fd>exported) exported=fd; }
+  return {locations:locs,entries,exported,source:fileName||'uploaded file'};
+}
+async function handleFile(file){
+  if(!file) return;
+  if(!/\.xlsx?$/i.test(file.name)){ setMsg('Choose an .xlsx file exported from the Waitlist app.','err'); return; }
+  setMsg('Reading '+file.name+'…');
+  try{
+    await loadXlsx();
+    const wb=XLSX.read(await file.arrayBuffer(),{type:'array'});
+    const ds=processWorkbook(wb,file.name);
+    useDataset(ds,state.loc);
+    try{ localStorage.setItem('wl-dataset',JSON.stringify(ds)); }catch(e){}
+    setMsg('Loaded '+ds.entries.length+' entries across '+ds.locations.length+' locations.','ok');
+  }catch(err){ setMsg(err.message||'That file could not be read.','err'); }
+  document.getElementById('file').value='';
+}
+
+function init(){
+  const sel=document.getElementById('loc');
+  sel.onchange=()=>{ state.loc=sel.value; state.logFilter='all'; state.logAll=false; render(); };
+  document.querySelectorAll('#presets button').forEach(b=>b.onclick=()=>{ state.preset=b.dataset.p; render(); });
+  document.querySelectorAll('#gran button').forEach(b=>b.onclick=()=>{ state.gran=b.dataset.g; render(); });
+  const onDate=()=>{ const f=document.getElementById('from').value, t=document.getElementById('to').value; if(!f||!t) return; state.preset='custom'; state.from=f; state.to=t; render(); };
+  document.getElementById('from').onchange=onDate; document.getElementById('to').onchange=onDate;
+  document.getElementById('hideTest').onchange=e=>{ state.hideTest=e.target.checked; render(); };
+  document.getElementById('file').onchange=e=>handleFile(e.target.files[0]);
+  document.getElementById('resetData').onclick=()=>{ try{ localStorage.removeItem('wl-dataset'); }catch(e){} useDataset(ORIGINAL,state.loc); setMsg('Showing the built-in data again.'); };
+  let dragN=0;
+  addEventListener('dragenter',e=>{ if(e.dataTransfer&&[...e.dataTransfer.types].includes('Files')){ dragN++; document.body.classList.add('dragging'); } });
+  addEventListener('dragleave',()=>{ dragN=Math.max(0,dragN-1); if(!dragN) document.body.classList.remove('dragging'); });
+  addEventListener('dragover',e=>e.preventDefault());
+  addEventListener('drop',e=>{ e.preventDefault(); dragN=0; document.body.classList.remove('dragging'); const f=e.dataTransfer&&e.dataTransfer.files[0]; if(f) handleFile(f); });
+  let rt; addEventListener('resize',()=>{ clearTimeout(rt); rt=setTimeout(render,120); });
+  try{ matchMedia('(prefers-color-scheme: dark)').addEventListener('change',render); }catch(e){}
+  new MutationObserver(render).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
+  let saved=null;
+  try{ const raw=localStorage.getItem('wl-dataset'); if(raw){ const d=JSON.parse(raw); if(d&&Array.isArray(d.entries)&&Array.isArray(d.locations)) saved=d; } }catch(e){}
+  useDataset(saved||ORIGINAL,null);
+  if(saved) setMsg('Showing your last upload.');
+}
+init();
+</script>
